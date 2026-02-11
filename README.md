@@ -1,290 +1,149 @@
-Welcome to your new TanStack app! 
+# MCP Apps Todo
 
-# Getting Started
+[MCP Apps](https://modelcontextprotocol.io/specification/2025-12-17/server/apps)(旧 SEP-1865)を活用した Todo アプリです。Claude Desktop や Claude Code などの MCP クライアントから Todo を操作でき、**会話内にインタラクティブな UI が表示される**のが特徴です。
 
-To run this application:
+> [!WARNING]
+> これは個人の学習・練習用リポジトリです。認証・認可をはじめとするセキュリティ対策は一切実装されていません。**本番環境での利用には適しません。**
+
+## MCP Apps とは
+
+通常の MCP ツールは テキストの入出力のみですが、MCP Apps を使うと **ツール実行時にリッチな UI を会話内に埋め込む**ことができます。
+
+このアプリでは、Claude に「Todo を見せて」と頼むと、テキスト応答に加えて操作可能な Todo リスト UI が表示されます。UI 上から直接 Todo の追加・完了・削除ができ、その結果がサーバーに即時反映されます。
+
+## 技術スタック
+
+| レイヤー | 技術 |
+|---------|------|
+| フロントエンド | React 19 + TanStack Start + Tailwind CSS |
+| MCP サーバー | `@modelcontextprotocol/sdk` + `@modelcontextprotocol/ext-apps` |
+| MCP 内 UI | React (単一 HTML にビルドして埋め込み) |
+| データベース | Cloudflare D1 (SQLite) + Drizzle ORM |
+| ホスティング | Cloudflare Workers |
+
+## アーキテクチャ
+
+```
+┌──────────────┐      ┌───────────────────────────┐      ┌──────────┐
+│ Claude       │◄────►│  Cloudflare Workers        │      │          │
+│ Desktop/Code │ MCP  │  ┌──────────┐ ┌─────────┐ │      │ D1       │
+│              │      │  │MCP Server│ │ Web UI  │ │◄────►│ Database │
+└──────────────┘      │  └──────────┘ └─────────┘ │      │          │
+                      └───────────────────────────┘      └──────────┘
+                           ▲
+┌──────────────┐           │
+│ ブラウザ      │◄──────────┘
+│ (Web UI)     │   HTTP
+└──────────────┘
+```
+
+- `/mcp` — MCP エンドポイント (Streamable HTTP)
+- `/` — Web UI (SSR)
+
+## MCP ツール
+
+| ツール | 説明 |
+|--------|------|
+| `list_todos` | Todo 一覧の取得 |
+| `add_todo` | Todo の追加 |
+| `update_todo` | Todo の更新 |
+| `complete_todo` | 完了/未完了の切り替え |
+| `delete_todo` | Todo の削除 |
+
+すべてのツールに MCP Apps の UI メタデータが付与されており、対応クライアントではインタラクティブな UI が表示されます。
+
+## セットアップ
+
+### 前提条件
+
+- [Bun](https://bun.sh/)
+- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) (Cloudflare Workers)
+
+### ローカル開発
 
 ```bash
+# 依存関係のインストール
 bun install
-bun --bun run start
+
+# ローカル DB にマイグレーション適用
+bunx wrangler d1 migrations apply mcp-todo-db --local
+
+# 開発サーバー起動 (http://localhost:3000)
+bun run dev
 ```
 
-# Building For Production
-
-To build this application for production:
+### MCP Inspector でテスト
 
 ```bash
-bun --bun run build
+npx @modelcontextprotocol/inspector http://localhost:3000/mcp
 ```
 
-## Testing
-
-This project uses [Vitest](https://vitest.dev/) for testing. You can run the tests with:
+### デプロイ
 
 ```bash
-bun --bun run test
+# Cloudflare D1 データベースを作成 (初回のみ)
+bunx wrangler d1 create mcp-todo-db
+
+# wrangler.jsonc の database_id を作成した DB の ID に更新
+
+# 本番 DB にマイグレーション適用
+bunx wrangler d1 migrations apply mcp-todo-db --remote
+
+# ビルド & デプロイ
+bun run deploy
 ```
 
-## Styling
+## Claude クライアントへの接続
 
-This project uses [Tailwind CSS](https://tailwindcss.com/) for styling.
+デプロイ後の MCP エンドポイント URL を `https://<your-domain>/mcp` として、各クライアントに設定します。
+例：https://mcp-apps-todo.starry-night.dev/mcp
 
+### Claude Desktop
 
+`claude_desktop_config.json` に追加:
 
-
-## Routing
-This project uses [TanStack Router](https://tanstack.com/router). The initial setup is a file based router. Which means that the routes are managed as files in `src/routes`.
-
-### Adding A Route
-
-To add a new route to your application just add another a new file in the `./src/routes` directory.
-
-TanStack will automatically generate the content of the route file for you.
-
-Now that you have two routes you can use a `Link` component to navigate between them.
-
-### Adding Links
-
-To use SPA (Single Page Application) navigation you will need to import the `Link` component from `@tanstack/react-router`.
-
-```tsx
-import { Link } from "@tanstack/react-router";
-```
-
-Then anywhere in your JSX you can use it like so:
-
-```tsx
-<Link to="/about">About</Link>
-```
-
-This will create a link that will navigate to the `/about` route.
-
-More information on the `Link` component can be found in the [Link documentation](https://tanstack.com/router/v1/docs/framework/react/api/router/linkComponent).
-
-### Using A Layout
-
-In the File Based Routing setup the layout is located in `src/routes/__root.tsx`. Anything you add to the root route will appear in all the routes. The route content will appear in the JSX where you use the `<Outlet />` component.
-
-Here is an example layout that includes a header:
-
-```tsx
-import { Outlet, createRootRoute } from '@tanstack/react-router'
-import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
-
-import { Link } from "@tanstack/react-router";
-
-export const Route = createRootRoute({
-  component: () => (
-    <>
-      <header>
-        <nav>
-          <Link to="/">Home</Link>
-          <Link to="/about">About</Link>
-        </nav>
-      </header>
-      <Outlet />
-      <TanStackRouterDevtools />
-    </>
-  ),
-})
-```
-
-The `<TanStackRouterDevtools />` component is not required so you can remove it if you don't want it in your layout.
-
-More information on layouts can be found in the [Layouts documentation](https://tanstack.com/router/latest/docs/framework/react/guide/routing-concepts#layouts).
-
-
-## Data Fetching
-
-There are multiple ways to fetch data in your application. You can use TanStack Query to fetch data from a server. But you can also use the `loader` functionality built into TanStack Router to load the data for a route before it's rendered.
-
-For example:
-
-```tsx
-const peopleRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/people",
-  loader: async () => {
-    const response = await fetch("https://swapi.dev/api/people");
-    return response.json() as Promise<{
-      results: {
-        name: string;
-      }[];
-    }>;
-  },
-  component: () => {
-    const data = peopleRoute.useLoaderData();
-    return (
-      <ul>
-        {data.results.map((person) => (
-          <li key={person.name}>{person.name}</li>
-        ))}
-      </ul>
-    );
-  },
-});
-```
-
-Loaders simplify your data fetching logic dramatically. Check out more information in the [Loader documentation](https://tanstack.com/router/latest/docs/framework/react/guide/data-loading#loader-parameters).
-
-### React-Query
-
-React-Query is an excellent addition or alternative to route loading and integrating it into you application is a breeze.
-
-First add your dependencies:
-
-```bash
-bun install @tanstack/react-query @tanstack/react-query-devtools
-```
-
-Next we'll need to create a query client and provider. We recommend putting those in `main.tsx`.
-
-```tsx
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-
-// ...
-
-const queryClient = new QueryClient();
-
-// ...
-
-if (!rootElement.innerHTML) {
-  const root = ReactDOM.createRoot(rootElement);
-
-  root.render(
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>
-  );
+```json
+{
+  "mcpServers": {
+    "todo": {
+      "type": "streamable-http",
+      "url": "https://<your-domain>/mcp"
+    }
+  }
 }
 ```
 
-You can also add TanStack Query Devtools to the root route (optional).
-
-```tsx
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-
-const rootRoute = createRootRoute({
-  component: () => (
-    <>
-      <Outlet />
-      <ReactQueryDevtools buttonPosition="top-right" />
-      <TanStackRouterDevtools />
-    </>
-  ),
-});
-```
-
-Now you can use `useQuery` to fetch your data.
-
-```tsx
-import { useQuery } from "@tanstack/react-query";
-
-import "./App.css";
-
-function App() {
-  const { data } = useQuery({
-    queryKey: ["people"],
-    queryFn: () =>
-      fetch("https://swapi.dev/api/people")
-        .then((res) => res.json())
-        .then((data) => data.results as { name: string }[]),
-    initialData: [],
-  });
-
-  return (
-    <div>
-      <ul>
-        {data.map((person) => (
-          <li key={person.name}>{person.name}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-export default App;
-```
-
-You can find out everything you need to know on how to use React-Query in the [React-Query documentation](https://tanstack.com/query/latest/docs/framework/react/overview).
-
-## State Management
-
-Another common requirement for React applications is state management. There are many options for state management in React. TanStack Store provides a great starting point for your project.
-
-First you need to add TanStack Store as a dependency:
+### Claude Code (CLI)
 
 ```bash
-bun install @tanstack/store
+claude mcp add todo --transport http https://<your-domain>/mcp
 ```
 
-Now let's create a simple counter in the `src/App.tsx` file as a demonstration.
+### VS Code (Claude 拡張機能)
 
-```tsx
-import { useStore } from "@tanstack/react-store";
-import { Store } from "@tanstack/store";
-import "./App.css";
+`.vscode/settings.json` に追加:
 
-const countStore = new Store(0);
-
-function App() {
-  const count = useStore(countStore);
-  return (
-    <div>
-      <button onClick={() => countStore.setState((n) => n + 1)}>
-        Increment - {count}
-      </button>
-    </div>
-  );
+```json
+{
+  "claude-code.mcpServers": {
+    "todo": {
+      "type": "streamable-http",
+      "url": "https://<your-domain>/mcp"
+    }
+  }
 }
-
-export default App;
 ```
 
-One of the many nice features of TanStack Store is the ability to derive state from other state. That derived state will update when the base state updates.
+## 使い方の例
 
-Let's check this out by doubling the count using derived state.
+Claude との会話で:
 
-```tsx
-import { useStore } from "@tanstack/react-store";
-import { Store, Derived } from "@tanstack/store";
-import "./App.css";
+- 「mario の Todo を見せて」
+- 「mario の Todo に『牛乳を買う』を追加して」
+- 「『牛乳を買う』を完了にして」
 
-const countStore = new Store(0);
+MCP Apps 対応クライアントでは、ツール実行時に UI が表示され、そこから直接操作することもできます。
 
-const doubledStore = new Derived({
-  fn: () => countStore.state * 2,
-  deps: [countStore],
-});
-doubledStore.mount();
+## ライセンス
 
-function App() {
-  const count = useStore(countStore);
-  const doubledCount = useStore(doubledStore);
-
-  return (
-    <div>
-      <button onClick={() => countStore.setState((n) => n + 1)}>
-        Increment - {count}
-      </button>
-      <div>Doubled - {doubledCount}</div>
-    </div>
-  );
-}
-
-export default App;
-```
-
-We use the `Derived` class to create a new store that is derived from another store. The `Derived` class has a `mount` method that will start the derived store updating.
-
-Once we've created the derived store we can use it in the `App` component just like we would any other store using the `useStore` hook.
-
-You can find out everything you need to know on how to use TanStack Store in the [TanStack Store documentation](https://tanstack.com/store/latest).
-
-# Demo files
-
-Files prefixed with `demo` can be safely deleted. They are there to provide a starting point for you to play around with the features you've installed.
-
-# Learn More
-
-You can learn more about all of the offerings from TanStack in the [TanStack documentation](https://tanstack.com).
+MIT
