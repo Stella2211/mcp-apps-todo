@@ -23,7 +23,7 @@
 		{
 			"binding": "DB",
 			"database_name": "mcp-todo-db",
-			"database_id": "4137f7c6-557b-48e8-a372-cc4e5a58976a",
+			"database_id": "0cf9abc1-5e2a-49a9-81cc-18125eff3cf4",
 			"migrations_dir": "drizzle"
 		}
 	]
