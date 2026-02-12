@@ -138,8 +138,8 @@ claude mcp add todo --transport http https://<your-domain>/mcp
 
 Claude との会話で:
 
-- 「mario の Todo を見せて」
-- 「mario の Todo に『牛乳を買う』を追加して」
+- 「stella の Todo を見せて」
+- 「stella の Todo に『牛乳を買う』を追加して」
 - 「『牛乳を買う』を完了にして」
 
 MCP Apps 対応クライアントでは、ツール実行時に UI が表示され、そこから直接操作することもできます。
